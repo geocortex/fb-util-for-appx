@@ -14,6 +14,8 @@
 #include <APPX/Hash.h>
 #include <APPX/Sink.h>
 #include <APPX/XML.h>
+#include <zlib.h>
+
 #include <algorithm>
 #include <cassert>
 #include <cstdarg>
@@ -27,7 +29,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <zlib.h>
 
 namespace facebook {
 namespace appx {
@@ -65,8 +66,7 @@ namespace appx {
 
         ZIPBlock(SHA256Hash sha256, off_t compressedSize = kNotCompressed)
             : sha256(sha256), compressedSize(compressedSize)
-        {
-        }
+        {}
 
         // Hash of the uncompressed data.
         SHA256Hash sha256;
@@ -107,16 +107,14 @@ namespace appx {
               crc32(crc32),
               blocks(blocks),
               sha256(sha256)
-        {
-        }
+        {}
 
         ZIPFileEntry(std::string fileName, off_t size,
                      off_t fileRecordHeaderOffset, std::uint32_t crc32,
                      std::vector<ZIPBlock> blocks, SHA256Hash sha256)
             : ZIPFileEntry(fileName, size, size, ZIPCompressionType::Store,
                            fileRecordHeaderOffset, crc32, blocks, sha256)
-        {
-        }
+        {}
 
         static std::string SanitizedFileName(const std::string &fileName);
 
@@ -139,8 +137,10 @@ namespace appx {
                 FB_BYTES_2_LE(0),  // Flags.
                 FB_BYTES_2_LE(
                     static_cast<std::uint16_t>(this->compressionType)),
-                FB_BYTES_2_LE(kFileTime), FB_BYTES_2_LE(kFileDate),
-                FB_BYTES_4_LE(this->crc32), FB_BYTES_4_LE(this->compressedSize),
+                FB_BYTES_2_LE(kFileTime),
+                FB_BYTES_2_LE(kFileDate),
+                FB_BYTES_4_LE(this->crc32),
+                FB_BYTES_4_LE(this->compressedSize),
                 FB_BYTES_4_LE(this->uncompressedSize),
                 FB_BYTES_2_LE(this->sanitizedFileName.size()),
                 FB_BYTES_2_LE(0),  // Extra field length.
@@ -166,8 +166,10 @@ namespace appx {
                 FB_BYTES_2_LE(0),  // Flags.
                 FB_BYTES_2_LE(
                     static_cast<std::uint16_t>(this->compressionType)),
-                FB_BYTES_2_LE(kFileTime), FB_BYTES_2_LE(kFileDate),
-                FB_BYTES_4_LE(this->crc32), FB_BYTES_4_LE(this->compressedSize),
+                FB_BYTES_2_LE(kFileTime),
+                FB_BYTES_2_LE(kFileDate),
+                FB_BYTES_4_LE(this->crc32),
+                FB_BYTES_4_LE(this->compressedSize),
                 FB_BYTES_4_LE(this->uncompressedSize),
                 FB_BYTES_2_LE(this->sanitizedFileName.size()),
                 FB_BYTES_2_LE(0),  // Extra field length.
@@ -385,27 +387,32 @@ namespace appx {
                 continue;
             }
             std::string fixedFileName = entry.fileName;
-            std::replace(fixedFileName.begin(), fixedFileName.end(), '/', '\\');
-            ss << "<File "
-               << "Name=\"" << XMLEncodeString(fixedFileName) << "\" "
-               << "Size=\"" << entry.uncompressedSize << "\" "
-               << "LfhSize=\"" << entry.FileRecordHeaderSize() << "\">";
 
-            for (const ZIPBlock &block : entry.blocks) {
-                Base64Sink base64Sink;
-                base64Sink.Write(sizeof(block.sha256.bytes),
-                                 block.sha256.bytes);
-                base64Sink.Close();
+            // Don't write AppxSignature.p7x line to BlockMap file - it's not required
+            if (fixedFileName.find("AppxSignature") == std::string::npos) {
+                std::replace(fixedFileName.begin(), fixedFileName.end(), '/', '\\');
+                ss << "<File "
+                << "Name=\"" << XMLEncodeString(fixedFileName) << "\" "
+                << "Size=\"" << entry.uncompressedSize << "\" "
+                << "LfhSize=\"" << entry.FileRecordHeaderSize() << "\">";
 
-                ss << "<Block Hash=\"" << base64Sink.Base64() << "\"";
-                if (block.compressedSize != ZIPBlock::kNotCompressed) {
-                    // FIXME(strager): Ensure locales don't screw us over.
-                    ss << " Size=\"" << block.compressedSize << "\"";
+                for (const ZIPBlock &block : entry.blocks) {
+                    Base64Sink base64Sink;
+                    base64Sink.Write(sizeof(block.sha256.bytes),
+                                    block.sha256.bytes);
+                    base64Sink.Close();
+
+                    ss << "<Block Hash=\"" << base64Sink.Base64() << "\"";
+                    if (block.compressedSize != ZIPBlock::kNotCompressed) {
+                        // FIXME(strager): Ensure locales don't screw us over.
+                        ss << " Size=\"" << block.compressedSize << "\"";
+                    }
+                    ss << "/>";
                 }
-                ss << "/>";
+                ss << "</File>";
             }
-            ss << "</File>";
         }
+
         ss << "</BlockMap>";
         std::string xml = ss.str();
         std::size_t xmlSize = xml.size();
