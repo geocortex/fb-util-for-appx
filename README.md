@@ -19,6 +19,13 @@ Prerequisites:
 * OpenSSL developer library
 * zlib developer library
 
+Installing prerequisites:
+
+    sudo apt-get install cmake
+    sudo apt-get install build-essential
+    sudo apt-get install libssl-dev
+    sudo apt-get install zlib1g-dev
+
 Supported build and host platforms and toolchains:
 
 * GNU/Linux with GCC 4.8.1 or GCC 4.9

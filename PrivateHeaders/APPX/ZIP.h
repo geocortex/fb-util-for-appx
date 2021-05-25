@@ -186,12 +186,16 @@ namespace appx {
         }
     };
 
+    inline bool _EndsWith(const std::string &input, const std::string &suffix)
+    {
+        return (
+            suffix.size() < input.size() &&
+            std::equal(suffix.rbegin(), suffix.rend(), input.rbegin()));
+    }
+
     inline bool _IsAPPXFile(const std::string &inputFileName)
     {
-        const std::string suffix = ".appx";
-        return (
-            suffix.size() < inputFileName.size() &&
-            std::equal(suffix.rbegin(), suffix.rend(), inputFileName.rbegin()));
+        return _EndsWith(inputFileName, ".appx") || _EndsWith(inputFileName, ".msix");
     }
 
     // For each of the appx files that we store in appxbundle, there is a
