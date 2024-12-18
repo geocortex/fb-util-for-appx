@@ -3,9 +3,7 @@
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree. An additional grant
-# of patent rights can be found in the PATENTS file in the same directory.
-#
+# LICENSE file in the root directory of this source tree.
 
 cmake_minimum_required(VERSION 3.0)
 enable_testing()
@@ -24,15 +22,19 @@ add_executable(appx
                Sources/XML.cpp
                Sources/ZIP.cpp
                Sources/main.cpp)
+
 target_include_directories(appx
                            PRIVATE
                            PrivateHeaders
                            ${OPENSSL_INCLUDE_DIR}
                            ${ZLIB_INCLUDE_DIRS})
+
 target_link_libraries(appx
                       PRIVATE
+                      /usr/lib/libfts.a
                       ${OPENSSL_LIBRARIES}
                       ${ZLIB_LIBRARIES})
+
 install(TARGETS appx RUNTIME DESTINATION bin)
 
 # Check for C++11 support.
@@ -50,6 +52,7 @@ function (APPX_CHECK_TEMPLATE_USING_WITH_FLAGS NAME FLAGS)
                              "${NAME}"
                              FAIL_REGEX "C\\\\+\\\\+11 extension")
 endfunction ()
+
 function (APPX_CXX_STD_FLAGS OUT_VAR)
   appx_check_template_using_with_flags(APPX_HAS_TEMPLATE_USING "")
   if (APPX_HAS_TEMPLATE_USING)
@@ -64,7 +67,9 @@ function (APPX_CXX_STD_FLAGS OUT_VAR)
   endif ()
   message(FATAL_ERROR "Compiler lacks C++11 support")
 endfunction ()
+
 appx_cxx_std_flags(APPX_CXX_STD_FLAGS)
+
 set_property(TARGET appx
              APPEND PROPERTY COMPILE_OPTIONS "${APPX_CXX_STD_FLAGS}")
 
@@ -86,7 +91,9 @@ function (APPX_CHECK_OPENSSL_WITH_FLAGS NAME FLAGS)
                              "${NAME}"
                              FAIL_REGEX "is deprecated")
 endfunction ()
+
 appx_check_openssl_with_flags(APPX_HAS_UNDEPRECATED_OPENSSL "")
+
 if (NOT APPX_HAS_UNDEPRECATED_OPENSSL)
   appx_check_openssl_with_flags(APPX_HAS_SUPPRESSABLE_DEPRECATED_OPENSSL
                                 -Wno-deprecated-declarations)
@@ -102,6 +109,7 @@ function (APPX_ADD_TEST NAME)
   set_property(TEST "${NAME}" PROPERTY
                ENVIRONMENT "FB_APPX_PATH=$<TARGET_FILE:appx>")
 endfunction ()
+
 appx_add_test(TestInputs)
 appx_add_test(TestValidZIP)
 appx_add_test(TestXMLEscaping)
